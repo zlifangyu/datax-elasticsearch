@@ -101,13 +101,16 @@
                   "name": "taches",
                   "child": [
                     {
-                      "name": "tch_id"
+                      "name": "tch_id".
+                      "index": 1
                     },
                     {
-                      "name": "tch_mod"
+                      "name": "tch_mod".
+                      "index": 2
                     },
                     {
-                      "name": "flow_id"
+                      "name": "flow_id".
+                      "index": 3
                     }
                   ]
                 }
@@ -201,7 +204,8 @@
   * 默认值: 无
 
 * column
-  * 描述：需要读取的字段，name对应es文档的key，alias为最终记录的字段名如果为空则使用name，value表示字段为常量，child为嵌套对象
+  * 描述：需要读取的字段，name对应es文档的key，alias为最终记录的字段名如果为空则使用name，value表示字段为常量，child为嵌套对象, 
+    index标识字段的下边，表示输出的顺序
   * 必选：是
   * 默认值：无
 
