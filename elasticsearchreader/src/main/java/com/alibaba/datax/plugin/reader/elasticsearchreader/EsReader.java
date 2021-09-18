@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author kesc mail:492167585@qq.com
@@ -74,12 +75,10 @@ public class EsReader extends Reader {
 
         @Override
         public List<Configuration> split(int adviceNumber) {
-            List<Configuration> configurations = new ArrayList<>();
-            List<Object> search = conf.getList(Key.SEARCH_KEY, Object.class);
-            for (Object query : search) {
-                Configuration clone = conf.clone();
-                clone.set(Key.SEARCH_KEY, query);
-                configurations.add(clone);
+            // 拆分Task。参数adviceNumber框架建议的拆分数，一般是运行时所配置的并发度。值返回的是Task的配置列表
+            List<Configuration> configurations = new ArrayList<Configuration>(adviceNumber);
+            for (int i = 0; i < adviceNumber; i++) {
+                configurations.add(conf);
             }
             return configurations;
         }
@@ -201,15 +200,18 @@ public class EsReader extends Reader {
             return searchResult;
         }
 
-        private void setDefaultValue(List<EsField> column, Map<String, Object> data) {
+        // update zli 2021-09-18 start
+        private void setDefaultValue(List<EsField> column, Map<String, Object> data, List<EsField> fields) {
             for (EsField field : column) {
                 if (field.hasChild()) {
-                    setDefaultValue(field.getChild(), data);
+                    setDefaultValue(field.getChild(), data, fields);
                 } else {
+                    fields.add(field);
                     data.putIfAbsent(field.getFinalName(table.getNameCase()), null);
                 }
             }
         }
+        // update zli 2021-09-18 end
 
         private void getPathSource(List<Map<String, Object>> result, Map<String, Object> source, List<EsField> column, Map<String, Object> parent) {
             if (source.isEmpty()) {
@@ -290,14 +292,43 @@ public class EsReader extends Reader {
                     continue;
                 }
                 Map<String, Object> parent = new LinkedHashMap<>((int) (column.size() * 1.5));
-                setDefaultValue(table.getColumn(), parent);
+                // add zli 2021-09-18 start
+                List<EsField> fields = new ArrayList<>();
+                // add zli 2021-09-18 end
+                // update zli 2021-09-18 start
+                setDefaultValue(table.getColumn(), parent, fields);
+                // add zli 2021-09-18 end
                 recordMaps.add(parent);
                 getPathSource(recordMaps, gson.fromJson(source, Map.class), column, parent);
-                this.transportOneRecord(table, recordSender, recordMaps);
+                // add zli 2021-09-18 start
+                List<Map<String, Object>> sortRecordMap = sortedRecords(recordMaps, fields);
+                // add zli 2021-09-18 end
+                // update zli 2021-09-18 start
+                // this.transportOneRecord(table, recordSender, recordMaps);
+                this.transportOneRecord(table, recordSender, sortRecordMap);
+                // add zli 2021-09-18 end
                 recordMaps.clear();
             }
             return sources.size() > 0;
         }
+
+        // add zli 2021-09-18 start
+        private List<Map<String, Object>> sortedRecords(List<Map<String, Object>> recordMaps, List<EsField> column) {
+            List<EsField> columns = column.stream().sorted(Comparator.comparing(EsField::getIndex)).collect(Collectors.toList());
+            List<Map<String, Object>> maps = new ArrayList<>();
+            for (Map<String, Object> recordMap : recordMaps) {
+                Map<String, Object> map = new LinkedHashMap<>();
+                for (int i=0;i < columns.size();i++) {
+                    EsField field = columns.get(i);
+                    String fieldName = field.getFinalName(table.getNameCase());
+                    Object value = recordMap.get(fieldName);
+                    map.put(fieldName, value);
+                }
+                maps.add(map);
+            }
+            return maps;
+        }
+        // add zli 2021-09-18 end
 
         private void transportOneRecord(EsTable table, RecordSender recordSender, List<Map<String, Object>> recordMaps) {
             for (Map<String, Object> o : recordMaps) {
