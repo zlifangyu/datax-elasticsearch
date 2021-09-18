@@ -12,6 +12,8 @@ public class EsField {
     private String name;
     private String alias;
     private Object value;
+    // add zli 2021-09-18
+    private Integer index = 0;
     private List<EsField> child;
 
     public String getName() {
@@ -61,5 +63,13 @@ public class EsField {
 
     public void setValue(Object value) {
         this.value = value;
+    }
+
+    public Integer getIndex() {
+        return index;
+    }
+
+    public void setIndex(Integer index) {
+        this.index = index;
     }
 }
